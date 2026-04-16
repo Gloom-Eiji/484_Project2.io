@@ -24,39 +24,25 @@
     - Skip button DOES NOT skip — dblclick() plays catlaugh instead
     ═══════════════════════════════════════════════
   -->
-  <div id="adModal" class="ad-modal">
-    <div class="ad-modal-inner">
+  <div id="adModal" class="ad-modal" aria-hidden="true">
+    <div class="ad-modal-inner" role="dialog" aria-modal="true" aria-label="Advertisement popup">
       <div class="ad-top-bar">
         <span class="ad-label">📺 AD BREAK</span>
-        <!-- Yellow progress bar that grows as the video plays -->
-        <div class="ad-timer-track">
+        <div class="ad-timer-track" aria-hidden="true">
           <div class="ad-timer-bar" id="adTimerBar"></div>
         </div>
-        <!--
-          dblclick() jQuery METHOD — UNIQUE METHOD #1 (not in starter code/lecture)
-          This button listens for a DOUBLE-CLICK event. Instead of skipping the ad,
-          double-clicking plays a cat laugh sound to mock the user for trying to skip.
-          dblclick() binds a handler that fires when the element is double-clicked.
-          See AdSystem.init() in game.js for the jQuery binding.
-        -->
-        <button class="ad-skip-btn" id="adSkipBtn">SKIP ▶▶</button>
+        <button type="button" class="ad-skip-btn" id="adSkipBtn">SKIP ▶▶</button>
       </div>
 
-      <!--
-        load() jQuery METHOD — UNIQUE METHOD #2 (not in starter code/lecture)
-        The <video> src is swapped to a new random file each time an ad fires.
-        After setting the src, $.load() / .load() is used on the video element
-        to force the browser to reload and re-buffer the new source.
-        Without calling load(), the browser may keep playing the old video.
-        See AdSystem.show() in game.js for the jQuery .load() binding/usage.
-      -->
-      <video id="adVideo" class="ad-video" autoplay playsinline></video>
+      <video id="adVideo" class="ad-video" autoplay playsinline preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen noremoteplayback"></video>
 
       <div class="ad-footer">
         <span id="adFooterText">Advertisement — cannot skip</span>
       </div>
     </div>
   </div>
+
+  <button type="button" id="adDevTrigger" class="ad-dev-trigger">TEST AD</button>
 
   <!-- TOP HUD -->
   <header class="hud-bar">

@@ -597,137 +597,151 @@ const ActionSystem = {
 //   2. .load()      — forces the <video> element to reload after src change
 // ═══════════════════════════════════════════════════════════════
 const AdSystem = {
-  modalEl:   null,   // the full-screen modal div
-  videoEl:   null,   // the <video> element inside the modal
-  timerBarEl: null,  // the yellow progress bar div
-  timerRAF:  null,   // requestAnimationFrame id for the progress bar animation
+  modalEl: null,
+  videoEl: null,
+  timerBarEl: null,
+  footerEl: null,
+  devBtnEl: null,
+  timerRAF: null,
+  scheduleTimer: null,
   isShowing: false,
+  adIntervalMs: 60000,
+  currentVideoNumber: 1,
 
   init() {
-    this.modalEl    = document.getElementById('adModal');
-    this.videoEl    = document.getElementById('adVideo');
+    this.modalEl = document.getElementById('adModal');
+    this.videoEl = document.getElementById('adVideo');
     this.timerBarEl = document.getElementById('adTimerBar');
+    this.footerEl = document.getElementById('adFooterText');
+    this.devBtnEl = document.getElementById('adDevTrigger');
 
     if (!this.modalEl || !this.videoEl || !this.timerBarEl) return;
 
-    // When the video finishes naturally, close the ad modal
+    this.videoEl.controls = false;
+    this.videoEl.disableRemotePlayback = true;
+    this.videoEl.setAttribute('muted', '');
+    this.videoEl.muted = true;
+    this.videoEl.loop = false;
+
     this.videoEl.addEventListener('ended', () => this.hide());
-
-    // ─────────────────────────────────────────────────────────
-    // JQUERY UNIQUE METHOD #1: .dblclick()
-    //
-    // .dblclick() attaches an event handler that fires when the
-    // user DOUBLE-CLICKS the element (two rapid clicks).
-    //
-    // Here we use it on the "SKIP" button. Instead of actually
-    // skipping the ad, a double-click plays the catlaugh sound
-    // to mock the user. The ad keeps playing — skip does nothing.
-    //
-    // Why dblclick instead of click? A single accidental click
-    // won't trigger it, and it matches the "SKIP ▶▶" label style
-    // used in real video players. The user is tricked into thinking
-    // double-clicking might work — it doesn't.
-    // ─────────────────────────────────────────────────────────
-    $('#adSkipBtn').dblclick(function() {
-      // double-clicking skip plays catlaugh — the ad DOES NOT close
-      AudioSystem.playPath('sound/catlaugh.mp3');
-      // Shake the button to taunt the user
-      $(this).addClass('skip-shake');
-      setTimeout(() => $(this).removeClass('skip-shake'), 500);
-      $('#adFooterText').text('haha nice try 😹 — not skippable');
+    this.videoEl.addEventListener('loadedmetadata', () => this._updateTimerBar());
+    this.videoEl.addEventListener('timeupdate', () => this._updateTimerBar());
+    this.videoEl.addEventListener('error', () => {
+      if (this.footerEl) {
+        this.footerEl.textContent = `Ad video failed to load: videos/advertisement_${this.currentVideoNumber}.mp4`;
+      }
     });
 
-    // Single click also plays catlaugh and shakes — the ad still does NOT close
-    $('#adSkipBtn').on('click', function() {
-      AudioSystem.playPath('sound/catlaugh.mp3');
-      $(this).addClass('skip-shake');
-      setTimeout(() => $(this).removeClass('skip-shake'), 500);
-      $('#adFooterText').text('lol nope 😹 — watch the whole thing');
+    $('#adSkipBtn').dblclick((event) => {
+      event.preventDefault();
+      this._fakeSkip($(event.currentTarget), 'haha nice try 😹 — not skippable');
     });
 
-    // Schedule the first ad pop-up
+    $('#adSkipBtn').on('click', (event) => {
+      event.preventDefault();
+      this._fakeSkip($(event.currentTarget), 'lol nope 😹 — watch the whole thing');
+    });
+
+    if (this.devBtnEl) {
+      this.devBtnEl.addEventListener('click', () => this.show(true));
+    }
+
     this._scheduleNext();
   },
 
-  // Show the ad modal with a random video (1–5)
-  show() {
-    if (this.isShowing) return;
+  show(fromDevButton = false) {
+    if (!this.modalEl || !this.videoEl || !this.timerBarEl) return;
+
+    clearTimeout(this.scheduleTimer);
+    cancelAnimationFrame(this.timerRAF);
+
     this.isShowing = true;
+    this.currentVideoNumber = Math.floor(Math.random() * 5) + 1;
+    const videoSrc = `videos/advertisement_${this.currentVideoNumber}.mp4`;
 
-    // Pick a random video number between 1 and 5
-    const randNum = Math.floor(Math.random() * 5) + 1;
-    const videoSrc = `videos/advertisement_${randNum}.mp4`;
-
-    // ─────────────────────────────────────────────────────────
-    // JQUERY UNIQUE METHOD #2: .load()
-    //
-    // .load() (on a media element) tells the browser to stop
-    // the current playback, wipe the buffer, and re-load the
-    // media from the newly assigned src attribute.
-    //
-    // Without calling .load() after changing src, the browser
-    // may continue playing the previously loaded video or do
-    // nothing at all — the src change alone is not enough.
-    //
-    // Steps:
-    //   1. Set the new src on the <video> element
-    //   2. Call .load() so the browser fetches and buffers the new file
-    //   3. The 'autoplay' attribute on <video> then starts playback
-    //
-    // In plain JS this would be: videoEl.src = ...; videoEl.load();
-    // We use the jQuery wrapper here to satisfy the unique-method req.
-    // ─────────────────────────────────────────────────────────
-    this.videoEl.src = videoSrc;
-    $(this.videoEl).load(); // forces browser to reload the new video source
-
-    // Reset the yellow progress bar to empty
     this.timerBarEl.style.width = '0%';
-    $('#adFooterText').text('Advertisement — cannot skip');
+    if (this.footerEl) {
+      this.footerEl.textContent = fromDevButton
+        ? `Developer test ad — cannot skip`
+        : `Advertisement — cannot skip`;
+    }
 
-    // Show the modal
+    this.modalEl.setAttribute('aria-hidden', 'false');
     $(this.modalEl).addClass('ad-visible');
 
-    // Start animating the yellow progress bar
+    this.videoEl.pause();
+    this.videoEl.currentTime = 0;
+    this.videoEl.src = videoSrc;
+    $(this.videoEl).load();
+
+    const playPromise = this.videoEl.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        if (this.footerEl) {
+          this.footerEl.textContent = 'Autoplay blocked, retrying muted ad playback...';
+        }
+        this.videoEl.muted = true;
+        this.videoEl.setAttribute('muted', '');
+        const retryPromise = this.videoEl.play();
+        if (retryPromise && typeof retryPromise.catch === 'function') {
+          retryPromise.catch(() => {
+            if (this.footerEl) {
+              this.footerEl.textContent = 'Ad is visible, but playback was blocked by the browser.';
+            }
+          });
+        }
+      });
+    }
+
     this._startTimerBar();
   },
 
   hide() {
-    if (!this.isShowing) return;
+    if (!this.modalEl || !this.videoEl) return;
     this.isShowing = false;
     cancelAnimationFrame(this.timerRAF);
 
-    // Pause and clean up the video
-    try { this.videoEl.pause(); } catch(_) {}
-    this.videoEl.src = '';
+    try {
+      this.videoEl.pause();
+      this.videoEl.currentTime = 0;
+    } catch (_) {}
 
-    // Fade out the modal
+    this.videoEl.removeAttribute('src');
+    this.videoEl.load();
+    this.timerBarEl.style.width = '0%';
+    this.modalEl.setAttribute('aria-hidden', 'true');
     $(this.modalEl).removeClass('ad-visible');
 
-    // Schedule the next ad
     this._scheduleNext();
   },
 
-  // Animate the yellow bar based on currentTime / duration
+  _fakeSkip($button, message) {
+    AudioSystem.playPath('sound/catlaugh.mp3');
+    $button.addClass('skip-shake');
+    setTimeout(() => $button.removeClass('skip-shake'), 500);
+    if (this.footerEl) this.footerEl.textContent = message;
+  },
+
+  _updateTimerBar() {
+    if (!this.videoEl || !this.timerBarEl) return;
+    const duration = this.videoEl.duration;
+    if (!duration || !isFinite(duration) || duration <= 0) return;
+    const pct = Math.max(0, Math.min((this.videoEl.currentTime / duration) * 100, 100));
+    this.timerBarEl.style.width = pct + '%';
+  },
+
   _startTimerBar() {
     const animate = () => {
-      const vid = this.videoEl;
-      // Only animate if video has valid duration
-      if (vid.duration && vid.duration > 0) {
-        const pct = (vid.currentTime / vid.duration) * 100;
-        this.timerBarEl.style.width = Math.min(pct, 100) + '%';
-      }
-      // Keep running until ad hides
-      if (this.isShowing) {
-        this.timerRAF = requestAnimationFrame(animate);
-      }
+      if (!this.isShowing) return;
+      this._updateTimerBar();
+      this.timerRAF = requestAnimationFrame(animate);
     };
     this.timerRAF = requestAnimationFrame(animate);
   },
 
-  // Schedule the next ad between 60 and 90 seconds from now
   _scheduleNext() {
-    const delay = 60000 + Math.random() * 30000;
-    setTimeout(() => this.show(), delay);
+    clearTimeout(this.scheduleTimer);
+    this.scheduleTimer = setTimeout(() => this.show(false), this.adIntervalMs);
   },
 };
 

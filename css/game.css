@@ -732,14 +732,14 @@ img {
    AD MODAL — full-screen advertisement overlay
    ========================================== */
 .ad-modal {
-  /* Covers the entire viewport, sits above everything */
   position: fixed;
   inset: 0;
-  z-index: 99999;
-  background: rgba(0, 0, 0, 0.92);
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.94);
   display: none;
   align-items: center;
   justify-content: center;
+  padding: 20px;
   font-family: 'Press Start 2P', monospace;
 }
 
@@ -754,7 +754,8 @@ img {
 }
 
 .ad-modal-inner {
-  width: min(640px, 95vw);
+  position: relative;
+  width: min(720px, 95vw);
   background: #0a0a1a;
   border: 2px solid var(--neon-yellow);
   box-shadow: 0 0 30px #ffe60060, 0 0 60px #ffe60020;
@@ -762,6 +763,7 @@ img {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transform: translateZ(0);
 }
 
 /* Top bar: label + yellow timer bar + skip button */
@@ -786,6 +788,7 @@ img {
 .ad-timer-track {
   flex: 1;
   height: 10px;
+  pointer-events: none;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 230, 0, 0.3);
   border-radius: 2px;
@@ -841,6 +844,8 @@ img {
   aspect-ratio: 16 / 9;
   background: #000;
   display: block;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 /* Footer below the video */
@@ -854,4 +859,30 @@ img {
   font-size: clamp(6px, 1vw, 8px);
   color: var(--pixel-gray);
   letter-spacing: 1px;
+}
+
+
+.ad-dev-trigger {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 10px 12px;
+  background: rgba(10, 10, 25, 0.95);
+  color: var(--neon-yellow);
+  border: 2px solid rgba(255, 230, 0, 0.55);
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(255, 230, 0, 0.2);
+  cursor: pointer;
+}
+
+.ad-dev-trigger:hover {
+  box-shadow: 0 0 16px rgba(255, 230, 0, 0.38);
+}
+
+.ad-modal.ad-visible ~ .ad-dev-trigger {
+  opacity: 0;
+  pointer-events: none;
 }
