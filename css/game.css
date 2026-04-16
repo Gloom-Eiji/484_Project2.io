@@ -296,10 +296,13 @@ html, body {
   opacity: 1;
 }
 
-/* Pixel particle canvas */
+/* Pixel particle canvas — positioned over the PC desk (right side) */
 .pixel-particles {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  width: 30%;
+  height: 100%;
   z-index: 1;
   pointer-events: none;
 }
@@ -734,10 +737,20 @@ img {
   inset: 0;
   z-index: 99999;
   background: rgba(0, 0, 0, 0.92);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   font-family: 'Press Start 2P', monospace;
+}
+
+.ad-modal.ad-visible {
+  display: flex;
+  animation: adFadeIn 0.3s ease;
+}
+
+@keyframes adFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .ad-modal-inner {

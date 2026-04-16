@@ -637,6 +637,14 @@ const AdSystem = {
       $('#adFooterText').text('haha nice try 😹 — not skippable');
     });
 
+    // Single click also plays catlaugh and shakes — the ad still does NOT close
+    $('#adSkipBtn').on('click', function() {
+      AudioSystem.playPath('sound/catlaugh.mp3');
+      $(this).addClass('skip-shake');
+      setTimeout(() => $(this).removeClass('skip-shake'), 500);
+      $('#adFooterText').text('lol nope 😹 — watch the whole thing');
+    });
+
     // Schedule the first ad pop-up
     this._scheduleNext();
   },
@@ -677,7 +685,7 @@ const AdSystem = {
     $('#adFooterText').text('Advertisement — cannot skip');
 
     // Show the modal
-    $(this.modalEl).fadeIn(300);
+    $(this.modalEl).addClass('ad-visible');
 
     // Start animating the yellow progress bar
     this._startTimerBar();
@@ -693,7 +701,7 @@ const AdSystem = {
     this.videoEl.src = '';
 
     // Fade out the modal
-    $(this.modalEl).fadeOut(300);
+    $(this.modalEl).removeClass('ad-visible');
 
     // Schedule the next ad
     this._scheduleNext();
