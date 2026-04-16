@@ -1,0 +1,6 @@
+Place advertisement video files here named:
+  advertisement_1.mp4
+  advertisement_2.mp4
+  advertisement_3.mp4
+  advertisement_4.mp4
+  advertisement_5.mp4

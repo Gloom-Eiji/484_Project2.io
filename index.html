@@ -1,48 +1,207 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Your Giga Pet</title>
-    <meta name="description" content="A cool thing made with Glitch">
-    <link id="favicon" rel="icon" href="https://glitch.com/edit/favicon-app.ico" type="image/x-icon">
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="script.js" defer></script>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <header>
-      <h1>
-        This is your Giga Pet
-      </h1>
-    </header>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Little CS Amateur – Game</title>
+  <link rel="stylesheet" href="css/game.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet">
+  <!-- jQuery loaded before game.js so $() is available everywhere -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+          crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="scanlines"></div>
 
-    <main>
-      <section class="pet-image-container">
-         <!-- Replace pet image with your own pet image -->
-        <img class="pet-image" src="">
-      </section>
-      <section class="dashboard">
-        <div>Name: <strong><span class="name"></span></strong></div>
-        <div>Weight: <strong><span class="weight"></span> pounds</strong></div>
-        <div>Happiness: <strong><span class="happiness"></span> tail wags (per min)</strong></div>
-        <div class="button-container">
-          <button class="treat-button">
-            Treat
-          </button>
-          <button class="play-button">
-            Play
-          </button>
-          <button class="exercise-button">
-            Exercise
-          </button>
+  <!--
+    ═══════════════════════════════════════════════
+    ADVERTISEMENT MODAL
+    - Triggered on a random timer (~every 60-90s)
+    - Plays a random video from videos/advertisement_(1-5).mp4
+    - Yellow bar shows video duration progress
+    - Skip button DOES NOT skip — dblclick() plays catlaugh instead
+    ═══════════════════════════════════════════════
+  -->
+  <div id="adModal" class="ad-modal" style="display:none;">
+    <div class="ad-modal-inner">
+      <div class="ad-top-bar">
+        <span class="ad-label">📺 AD BREAK</span>
+        <!-- Yellow progress bar that grows as the video plays -->
+        <div class="ad-timer-track">
+          <div class="ad-timer-bar" id="adTimerBar"></div>
         </div>
-      </section>
-    </main>
+        <!--
+          dblclick() jQuery METHOD — UNIQUE METHOD #1 (not in starter code/lecture)
+          This button listens for a DOUBLE-CLICK event. Instead of skipping the ad,
+          double-clicking plays a cat laugh sound to mock the user for trying to skip.
+          dblclick() binds a handler that fires when the element is double-clicked.
+          See AdSystem.init() in game.js for the jQuery binding.
+        -->
+        <button class="ad-skip-btn" id="adSkipBtn">SKIP ▶▶</button>
+      </div>
 
-    <!-- Your web-app is https, so your scripts need to be too -->
-    <script src="https://code.jquery.com/jquery-2.2.1.min.js"
-            integrity="sha256-gvQgAFzTH6trSrAWoH1iPo9Xc96QxSZ3feW6kem+O00="
-            crossorigin="anonymous"></script>
-  </body>
+      <!--
+        load() jQuery METHOD — UNIQUE METHOD #2 (not in starter code/lecture)
+        The <video> src is swapped to a new random file each time an ad fires.
+        After setting the src, $.load() / .load() is used on the video element
+        to force the browser to reload and re-buffer the new source.
+        Without calling load(), the browser may keep playing the old video.
+        See AdSystem.show() in game.js for the jQuery .load() binding/usage.
+      -->
+      <video id="adVideo" class="ad-video" autoplay playsinline></video>
+
+      <div class="ad-footer">
+        <span id="adFooterText">Advertisement — cannot skip</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP HUD -->
+  <header class="hud-bar">
+    <div class="hud-left">
+      <span class="hud-title">📟 CS STUDENT SIM</span>
+    </div>
+    <div class="hud-stats">
+      <div class="stat-block" id="statHunger">
+        <span class="stat-label">HUNGER</span>
+        <div class="stat-bar"><div class="stat-fill hunger-fill" id="hungerBar"></div></div>
+      </div>
+      <div class="stat-block" id="statThirst">
+        <span class="stat-label">THIRST</span>
+        <div class="stat-bar"><div class="stat-fill thirst-fill" id="thirstBar"></div></div>
+      </div>
+      <div class="stat-block" id="statEnergy">
+        <span class="stat-label">ENERGY</span>
+        <div class="stat-bar"><div class="stat-fill energy-fill" id="energyBar"></div></div>
+      </div>
+      <div class="stat-block" id="statMood">
+        <span class="stat-label">MOOD</span>
+        <div class="stat-bar"><div class="stat-fill mood-fill" id="moodBar"></div></div>
+      </div>
+      <!-- comp484 requirement: weight + happiness displayed -->
+      <div class="stat-block" id="statWeight">
+        <span class="stat-label">WEIGHT</span>
+        <div class="stat-bar"><div class="stat-fill weight-fill" id="weightBar"></div></div>
+      </div>
+      <div class="stat-block" id="statHappiness">
+        <span class="stat-label">HAPPY</span>
+        <div class="stat-bar"><div class="stat-fill happiness-fill" id="happinessBar"></div></div>
+      </div>
+    </div>
+    <div class="hud-right">
+      <!-- pet_info name displayed in HUD (comp484 requirement) -->
+      <span class="pet-name-badge" id="petNameBadge">EJ</span>
+      <span class="hud-clock" id="gameClock">00:00</span>
+    </div>
+  </header>
+
+  <!-- MAIN GAME WORLD -->
+  <main class="game-world" id="gameWorld">
+    <div class="room-bg"></div>
+
+    <div class="window-overlay">
+      <div class="window-sky">
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="cloud c3"></div>
+        <div class="city-lights"></div>
+      </div>
+    </div>
+
+    <!-- Fridge zone — clicking also triggers eat action -->
+    <div class="fridge-zone" id="fridgeZone" title="Open Fridge">
+      <div class="fridge-glow"></div>
+      <div class="interact-hint" id="fridgeHint">EAT</div>
+    </div>
+
+    <!-- PC zone — clicking triggers gaming or code action -->
+    <div class="pc-zone" id="pcZone" title="Use PC">
+      <div class="pc-glow"></div>
+      <div class="interact-hint" id="pcHint">PC</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!--
+      comp484 requirement: Visual notification after each button press.
+      This speech bubble shows the pet's comment — NOT console.log or alert().
+    -->
+    <div class="speech-bubble-game" id="gameSpeech">
+      <span id="gameSpeechText">...</span>
+    </div>
+
+    <!-- THE PET CHARACTER -->
+    <div class="pet-container" id="petContainer">
+      <img
+        src="assets/sprites/EJ_idle.png"
+        alt="CS Student Pet"
+        class="pet-sprite"
+        id="petSprite"
+        draggable="false"
+      />
+      <div class="pet-shadow" id="petShadow"></div>
+    </div>
+
+    <div class="zzz-effect" id="zzzEffect"><span>z</span><span>z</span><span>Z</span></div>
+    <div class="sweat-effect" id="sweatEffect">💦</div>
+    <div class="hearts-effect" id="heartsEffect"><span>💙</span><span>💙</span><span>💙</span></div>
+
+    <canvas class="pixel-particles" id="pixelCanvas"></canvas>
+  </main>
+
+  <!-- BOTTOM ACTION BUTTONS -->
+  <footer class="action-bar">
+    <div class="action-grid">
+
+      <button class="action-btn" id="btnFeed" onclick="petAction('eat')">
+        <span class="btn-icon">🍕</span>
+        <span class="btn-label">FEED</span>
+      </button>
+
+      <button class="action-btn" id="btnDrink" onclick="petAction('drink')">
+        <span class="btn-icon">🧃</span>
+        <span class="btn-label">DRINK</span>
+      </button>
+
+      <button class="action-btn" id="btnCode" onclick="petAction('code')">
+        <span class="btn-icon">💻</span>
+        <span class="btn-label">CODE</span>
+      </button>
+
+      <button class="action-btn gaming-btn" id="btnGame" onclick="petAction('gaming')">
+        <span class="btn-icon">🎮</span>
+        <span class="btn-label">GAME</span>
+      </button>
+
+      <button class="action-btn" id="btnWorkout" onclick="petAction('workout')">
+        <span class="btn-icon">🏋️</span>
+        <span class="btn-label">WORKOUT</span>
+      </button>
+
+      <button class="action-btn" id="btnSleep" onclick="petAction('sleep')">
+        <span class="btn-icon">😴</span>
+        <span class="btn-label">SLEEP</span>
+      </button>
+
+      <!-- Danger button: job app lowers mood -->
+      <button class="action-btn danger-btn job-btn" id="btnScare" onclick="petAction('scared')">
+        <span class="btn-icon">📋</span>
+        <span class="btn-label">JOB APP</span>
+      </button>
+
+    </div>
+  </footer>
+
+  <!-- STATUS OVERLAY -->
+  <div class="status-overlay" id="statusOverlay" style="display:none;">
+    <div class="overlay-content">
+      <p id="overlayMessage">💤 CS Student is sleeping...</p>
+      <button onclick="dismissOverlay()" class="overlay-btn">WAKE UP</button>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
 </html>
