@@ -107,6 +107,15 @@ const COOLDOWNS = {
   treat:   5000,   // treat has a 5-second cooldown so you can't spam candy
 };
 
+// Resolve asset URLs safely on both local servers and GitHub Pages.
+function assetUrl(path) {
+  try {
+    return new URL(path.replace(/^\/+/, ''), document.baseURI).href;
+  } catch (_) {
+    return path;
+  }
+}
+
 // ── Audio System ───────────────────────────────────────────────
 const AudioSystem = {
   FILES: {
@@ -128,7 +137,7 @@ const AudioSystem = {
     const stem = this.FILES[key];
     if (!stem) return;
     try {
-      const audio = new Audio(`assets/audio/${stem}.mp3`);
+      const audio = new Audio(assetUrl(`assets/audio/${stem}.mp3`));
       audio.volume = 0.6;
       audio.play().catch(() => {}); // silently ignore autoplay policy errors
     } catch (_) {}
@@ -137,7 +146,7 @@ const AudioSystem = {
   // Play a sound from a specific path (used by AdSystem for catlaugh)
   playPath(path) {
     try {
-      const audio = new Audio(path);
+      const audio = new Audio(assetUrl(path));
       audio.volume = 0.9;
       audio.play().catch(() => {});
     } catch (_) {}
@@ -637,7 +646,7 @@ const AdSystem = {
     this.videoEl.addEventListener('timeupdate', () => this._updateTimerBar());
     this.videoEl.addEventListener('error', () => {
       if (this.footerEl) {
-        this.footerEl.textContent = `Ad video failed to load: videos/advertisement_${this.currentVideoNumber}.mp4`;
+        this.footerEl.textContent = `Ad video failed to load: ${assetUrl(`videos/advertisement_${this.currentVideoNumber}.mp4`)}`;
       }
     });
 
@@ -678,7 +687,7 @@ const AdSystem = {
 
     this.isShowing = true;
     this.currentVideoNumber = Math.floor(Math.random() * 5) + 1;
-    const videoSrc = `videos/advertisement_${this.currentVideoNumber}.mp4`;
+    const videoSrc = assetUrl(`videos/advertisement_${this.currentVideoNumber}.mp4`);
 
     this.timerBarEl.style.width = '0%';
     if (this.footerEl) {
