@@ -886,39 +886,3 @@ img {
   opacity: 0;
   pointer-events: none;
 }
-
-
-/* Developer test ad button */
-.dev-ad-btn {
-  position: fixed;
-  right: 14px;
-  bottom: 140px;
-  z-index: 1000;
-  font-family: 'Press Start 2P', monospace;
-  font-size: clamp(8px, 1vw, 10px);
-  padding: 10px 12px;
-  background: rgba(10,10,25,0.95);
-  color: var(--neon-yellow);
-  border: 2px solid var(--neon-yellow);
-  border-radius: 4px;
-  cursor: pointer;
-  letter-spacing: 1px;
-  box-shadow: 0 0 12px rgba(255,230,0,0.35);
-}
-
-.dev-ad-btn:hover {
-  background: rgba(255,230,0,0.12);
-  box-shadow: 0 0 16px rgba(255,230,0,0.55);
-}
-
-.dev-ad-btn:active {
-  transform: translateY(1px);
-}
-
-@media (max-width: 480px) {
-  .dev-ad-btn {
-    right: 10px;
-    bottom: 110px;
-    padding: 8px 10px;
-  }
-}

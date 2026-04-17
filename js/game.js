@@ -48,11 +48,11 @@ const DRAIN = { hunger: 1.5, thirst: 2.0, energy: 1.0, mood: 0.8 };
 //   exercise → -happiness, -weight  (mapped to workout)
 //   play     → +happiness, -weight  (mapped to gaming)
 const ACTION_BOOST = {
-  eat:     { hunger: +30, mood:  +5,  happiness: +5,  weight: +10  },
+  eat:     { hunger: +30, mood:  +5,  happiness: +5,  weight: +3  },
   drink:   { thirst: +30, mood:  +5  },
   code:    { mood:   +10, energy: -12 },
   gaming:  { mood:   +25, energy: -8, happiness: +10, weight: -3  }, // play: +happy -weight
-  workout: { energy: -20, mood:  +20, hunger: -10,    happiness: +5, weight: -15 }, // exercise
+  workout: { energy: -20, mood:  +20, hunger: -10,    happiness: -5, weight: -8 }, // exercise
   sleep:   { energy: +40, mood:  +5  },
   scared:  { mood:  -30, energy: -5, happiness: -10  },
   // comp484 new action: TREAT → adds happiness AND weight
@@ -608,7 +608,6 @@ const ActionSystem = {
 const AdSystem = {
   modalEl: null,
   videoEl: null,
-  sourceEl: null,
   timerBarEl: null,
   footerEl: null,
   devBtnEl: null,
@@ -617,29 +616,21 @@ const AdSystem = {
   isShowing: false,
   adIntervalMs: 60000,
   currentVideoNumber: 1,
-  pendingAutoplayClick: false,
 
   init() {
     this.modalEl = document.getElementById('adModal');
     this.videoEl = document.getElementById('adVideo');
-    this.sourceEl = document.getElementById('adVideoSource');
     this.timerBarEl = document.getElementById('adTimerBar');
     this.footerEl = document.getElementById('adFooterText');
-    this.devBtnEl = document.getElementById('devAdBtn');
+    this.devBtnEl = document.getElementById('adDevTrigger');
 
     if (!this.modalEl || !this.videoEl || !this.timerBarEl) return;
 
     this.videoEl.controls = false;
     this.videoEl.disableRemotePlayback = true;
-    this.videoEl.defaultMuted = false;
-    this.videoEl.muted = false;
-    this.videoEl.volume = 1;
+    this.videoEl.setAttribute('muted', '');
+    this.videoEl.muted = true;
     this.videoEl.loop = false;
-    this.videoEl.playsInline = true;
-    this.videoEl.setAttribute('playsinline', '');
-    this.videoEl.setAttribute('webkit-playsinline', '');
-    this.videoEl.setAttribute('preload', 'auto');
-    this.videoEl.removeAttribute('muted');
 
     this.videoEl.addEventListener('ended', () => this.hide());
     this.videoEl.addEventListener('loadedmetadata', () => this._updateTimerBar());
@@ -652,29 +643,17 @@ const AdSystem = {
 
     $('#adSkipBtn').dblclick((event) => {
       event.preventDefault();
-      this._fakeSkip($(event.currentTarget), 'haha nice try 😹 — get ragebaited');
+      this._fakeSkip($(event.currentTarget), 'haha nice try 😹 — not skippable');
     });
 
     $('#adSkipBtn').on('click', (event) => {
       event.preventDefault();
-      this._fakeSkip($(event.currentTarget), 'lol nope 😹 — sit there and take it');
+      this._fakeSkip($(event.currentTarget), 'lol nope 😹 — watch the whole thing');
     });
 
     if (this.devBtnEl) {
-      this.devBtnEl.addEventListener('click', () => {
-        AudioSystem.unlocked = true;
-        this.show(true);
-      });
+      this.devBtnEl.addEventListener('click', () => this.show(true));
     }
-
-    const retryPlaybackAfterInteraction = () => {
-      if (!this.pendingAutoplayClick || !this.isShowing) return;
-      this.pendingAutoplayClick = false;
-      AudioSystem.unlocked = true;
-      this._playVideo(true);
-    };
-    document.addEventListener('pointerdown', retryPlaybackAfterInteraction, true);
-    document.addEventListener('keydown', retryPlaybackAfterInteraction, true);
 
     this._scheduleNext();
   },
@@ -691,9 +670,9 @@ const AdSystem = {
 
     this.timerBarEl.style.width = '0%';
     if (this.footerEl) {
-      this.footerEl.textContent = fromDevButton || AudioSystem.unlocked
-        ? 'Advertisement — cannot skip'
-        : 'Advertisement — get ragebaited';
+      this.footerEl.textContent = fromDevButton
+        ? `Developer test ad — cannot skip`
+        : `Advertisement — cannot skip`;
     }
 
     this.modalEl.setAttribute('aria-hidden', 'false');
@@ -701,60 +680,34 @@ const AdSystem = {
 
     this.videoEl.pause();
     this.videoEl.currentTime = 0;
-    if (this.sourceEl) {
-      this.sourceEl.src = videoSrc;
-      this.sourceEl.type = 'video/mp4';
-    } else {
-      this.videoEl.src = videoSrc;
-    }
-    this.videoEl.defaultMuted = false;
-    this.videoEl.muted = false;
-    this.videoEl.volume = 1;
-    this.videoEl.load(); //loads new video into advertisement system
-
-    this._startTimerBar();
-    this._playVideo(fromDevButton);
-  },
-
-  _playVideo(forceWithSound = false) {
-    if (!this.videoEl) return;
-
-    const canUseSound = forceWithSound || AudioSystem.unlocked;
-    this.videoEl.defaultMuted = false;
-    this.videoEl.volume = 1;
-    this.videoEl.muted = !canUseSound;
+    this.videoEl.src = videoSrc;
+    $(this.videoEl).load();
 
     const playPromise = this.videoEl.play();
     if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.then(() => {
-        if (canUseSound) this.videoEl.muted = false;
-      }).catch(() => {
-        if (canUseSound) {
-          this.pendingAutoplayClick = true;
-          if (this.footerEl) {
-            this.footerEl.textContent = 'Browser blocked autoplay with sound. Click anywhere once to continue with audio.';
-          }
-          return;
-        }
-
-        this.videoEl.muted = true;
-        this.videoEl.play().catch(() => {
-          if (this.footerEl) {
-            this.footerEl.textContent = 'Ad is visible, but playback was blocked by the browser.';
-          }
-        });
-
+      playPromise.catch(() => {
         if (this.footerEl) {
-          this.footerEl.textContent = 'Advertisement is playing muted until the first page interaction unlocks audio.';
+          this.footerEl.textContent = 'Autoplay blocked, retrying muted ad playback...';
+        }
+        this.videoEl.muted = true;
+        this.videoEl.setAttribute('muted', '');
+        const retryPromise = this.videoEl.play();
+        if (retryPromise && typeof retryPromise.catch === 'function') {
+          retryPromise.catch(() => {
+            if (this.footerEl) {
+              this.footerEl.textContent = 'Ad is visible, but playback was blocked by the browser.';
+            }
+          });
         }
       });
     }
+
+    this._startTimerBar();
   },
 
   hide() {
     if (!this.modalEl || !this.videoEl) return;
     this.isShowing = false;
-    this.pendingAutoplayClick = false;
     cancelAnimationFrame(this.timerRAF);
 
     try {
@@ -762,9 +715,6 @@ const AdSystem = {
       this.videoEl.currentTime = 0;
     } catch (_) {}
 
-    if (this.sourceEl) {
-      this.sourceEl.removeAttribute('src');
-    }
     this.videoEl.removeAttribute('src');
     this.videoEl.load();
     this.timerBarEl.style.width = '0%';
