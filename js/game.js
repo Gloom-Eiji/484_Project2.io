@@ -35,6 +35,43 @@ var pet_info = {
   happiness: 70,   // 0–100 scale; shown as a bar
 };
 
+// ═══════════════════════════════════════════════════════════════
+// DEVTOOLS FEATURE 1 · Filter by Text
+//   Every log is tagged [ACTION], [STAT], [AD], or [PERF].
+//   In DevTools Console → Filter bar, type any tag to isolate those lines.
+//
+// DEVTOOLS FEATURE 2 · performance.mark()
+//   Named markers placed at key game milestones.
+//   Visible in DevTools Performance panel → Timings row.
+//
+// DEVTOOLS FEATURE 3 · performance.measure()
+//   Measures elapsed time between two marks; result logged to Console.
+//   Visible as a shaded span in the Performance Timings row.
+// ═══════════════════════════════════════════════════════════════
+
+const DevTools = {
+  // Feature 1 – tagged console logging (filter by text in DevTools)
+  log(tag, msg) {
+    console.log(`[${tag}] ${msg}`);
+  },
+
+  // Feature 2 – place a named mark on the Performance timeline
+  mark(name) {
+    performance.mark(name);
+  },
+
+  // Feature 3 – measure between two marks and log the duration
+  measure(name, startMark, endMark) {
+    try {
+      performance.measure(name, startMark, endMark);
+      const [entry] = performance.getEntriesByName(name, 'measure');
+      if (entry) {
+        this.log('PERF', `${name}: ${entry.duration.toFixed(2)} ms`);
+      }
+    } catch (_) {}
+  },
+};
+
 // ── Constants ──────────────────────────────────────────────────
 
 const TICK_MS = 3000;
@@ -533,8 +570,16 @@ const ActionSystem = {
   },
 
   _execute(action) {
+    // Feature 2 · mark action start on Performance timeline
+    DevTools.mark(`action-${action}-start`);
+
     const boost = ACTION_BOOST[action];
-    if (boost) PetState.apply(boost); // also updates pet_info via PetState.apply()
+    if (boost) {
+      PetState.apply(boost);
+      // Feature 1 · tagged log — filter Console by [ACTION] or [STAT]
+      DevTools.log('ACTION', `${action} triggered`);
+      DevTools.log('STAT', `hunger:${PetState.hunger.toFixed(0)} thirst:${PetState.thirst.toFixed(0)} energy:${PetState.energy.toFixed(0)} mood:${PetState.mood.toFixed(0)} | happiness:${pet_info.happiness} weight:${pet_info.weight}`);
+    }
 
     AudioSystem.play(action);
 
@@ -579,6 +624,13 @@ const ActionSystem = {
 
     const cd = COOLDOWNS[action] || 3000;
     this._startCooldown(action, cd, btnEl);
+
+    // Feature 2+3 · mark action end and measure total execution span
+    DevTools.mark(`action-${action}-end`);
+    DevTools.measure(`action-${action}-duration`, `action-${action}-start`, `action-${action}-end`);
+    // Feature 1 · log cooldown — filter Console by [ACTION]
+    DevTools.log('ACTION', `${action} on cooldown for ${cd}ms`);
+
     HUD.update();
   },
 
@@ -628,8 +680,8 @@ const AdSystem = {
 
     this.videoEl.controls = false;
     this.videoEl.disableRemotePlayback = true;
-    this.videoEl.setAttribute('muted', '');
-    this.videoEl.muted = true;
+    this.videoEl.muted = false; // unmuted — ads play with audio
+    this.videoEl.removeAttribute('muted');
     this.videoEl.loop = false;
 
     this.videoEl.addEventListener('ended', () => this.hide());
@@ -678,27 +730,30 @@ const AdSystem = {
     this.modalEl.setAttribute('aria-hidden', 'false');
     $(this.modalEl).addClass('ad-visible');
 
+    // Feature 1+2 · log ad event and mark it on the Performance timeline
+    DevTools.log('AD', `showing advertisement_${this.currentVideoNumber}.mp4`);
+    DevTools.mark('ad-start');
+
     this.videoEl.pause();
     this.videoEl.currentTime = 0;
     this.videoEl.src = videoSrc;
-    $(this.videoEl).load();
+    this.videoEl.load(); // native load() — avoids jQuery .load(url) conflict
 
     const playPromise = this.videoEl.play();
     if (playPromise && typeof playPromise.catch === 'function') {
       playPromise.catch(() => {
+        // Browser blocked unmuted autoplay — show a click-to-play overlay
+        // so audio is preserved (user gesture required for sound)
         if (this.footerEl) {
-          this.footerEl.textContent = 'Autoplay blocked, retrying muted ad playback...';
+          this.footerEl.textContent = '▶ Click anywhere to play ad with audio';
         }
-        this.videoEl.muted = true;
-        this.videoEl.setAttribute('muted', '');
-        const retryPromise = this.videoEl.play();
-        if (retryPromise && typeof retryPromise.catch === 'function') {
-          retryPromise.catch(() => {
-            if (this.footerEl) {
-              this.footerEl.textContent = 'Ad is visible, but playback was blocked by the browser.';
-            }
-          });
-        }
+        const resume = () => {
+          this.videoEl.muted = false;
+          this.videoEl.play().catch(() => {});
+          this.modalEl.removeEventListener('click', resume);
+          if (this.footerEl) this.footerEl.textContent = 'Advertisement — cannot skip';
+        };
+        this.modalEl.addEventListener('click', resume);
       });
     }
 
@@ -709,6 +764,11 @@ const AdSystem = {
     if (!this.modalEl || !this.videoEl) return;
     this.isShowing = false;
     cancelAnimationFrame(this.timerRAF);
+
+    // Feature 2+3 · measure how long the ad was shown
+    DevTools.mark('ad-end');
+    DevTools.measure('ad-duration', 'ad-start', 'ad-end');
+    DevTools.log('AD', `ad finished — ad-duration measured`);
 
     try {
       this.videoEl.pause();
@@ -725,6 +785,7 @@ const AdSystem = {
   },
 
   _fakeSkip($button, message) {
+    // catlaugh.mp3 lives in sound/ per README.txt
     AudioSystem.playPath('sound/catlaugh.mp3');
     $button.addClass('skip-shake');
     setTimeout(() => $button.removeClass('skip-shake'), 500);
@@ -864,6 +925,8 @@ function scheduleAmbientSpeech() {
 
 // ── Main Tick ──────────────────────────────────────────────────
 function gameTick() {
+  // Feature 2+3 · measure each tick duration
+  DevTools.mark('tick-start');
   PetState.tick();
   HUD.update();
   if (!DragHandler.isDragging && PetAnimator.currentState === 'idle') PetAnimator.autoSprite();
@@ -872,7 +935,11 @@ function gameTick() {
   if (need && !PetAnimator.speechEl?.classList.contains('visible')) {
     AudioSystem.play(need);
     PetAnimator.speak(PetAnimator.randomSpeech(need) || 'help...', 3500);
+    // Feature 1 · filter Console by [STAT] to catch urgent need warnings
+    DevTools.log('STAT', `urgent need: ${need}`);
   }
+  DevTools.mark('tick-end');
+  DevTools.measure('tick-duration', 'tick-start', 'tick-end');
 }
 
 // ── Global onclick targets (used by game.html inline attributes) ──
@@ -886,14 +953,23 @@ function dismissOverlay() {
 
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Feature 2 · mark game init start on the Performance timeline
+  DevTools.mark('game-init-start');
+  // Feature 1 · filter Console by [ACTION] to see init log
+  DevTools.log('ACTION', 'game initialising');
+
   HUD.update();
   PetWalker.init();
   DragHandler.init();
   PixelParticles.init();
   initZoneHandlers();
-  AdSystem.init();   // start the ad system — first ad fires after 60–90s
+  AdSystem.init();
   setInterval(gameTick,                  TICK_MS);
   setInterval(() => HUD.tickClock(),     1000);
   scheduleAmbientSpeech();
   setTimeout(() => PetAnimator.speak("another day of debugging...", 3500), 1500);
+
+  // Feature 2+3 · mark and measure total init time
+  DevTools.mark('game-init-end');
+  DevTools.measure('game-init-duration', 'game-init-start', 'game-init-end');
 });
